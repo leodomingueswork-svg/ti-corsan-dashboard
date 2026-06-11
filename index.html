@@ -172,6 +172,13 @@
     <option value="S4">S4 — Diretoria Sul</option>
     <option value="S5">S5 — Diretoria Oeste</option>
   </select>
+  <div class="v-divider"></div>
+  <div class="filter-label">Vínculo</div>
+  <div style="display:flex;gap:6px" id="vincBtns">
+    <button class="btn-filter active" data-v="TODOS" onclick="setVinculo('TODOS')">Todos</button>
+    <button class="btn-filter" data-v="CLT" onclick="setVinculo('CLT')">CLT</button>
+    <button class="btn-filter" data-v="TERCEIROS" onclick="setVinculo('TERCEIROS')">Terceiros</button>
+  </div>
 
 </div>
 
@@ -446,7 +453,7 @@ const D = {
   }
 };
 
-let company='CORSAN', regional='TODOS', m365On=true, cotAjustada=false, periodoMeses=12, semEstoque=false;
+let company='CORSAN', regional='TODOS', m365On=true, cotAjustada=false, periodoMeses=12, semEstoque=false, vinculo='TODOS';
 // Licenças anuais — toggles individuais
 let licOn = { autocad: true, thinkcell: true, adobe: true };
 
@@ -500,6 +507,11 @@ function setCompany(c){
   render();
 }
 function setRegional(r){ regional=r; render(); }
+function setVinculo(v){
+  vinculo=v;
+  document.querySelectorAll('#vincBtns .btn-filter').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+  buildCharts(); buildTables();
+}
 function setSemEstoque(val){
   semEstoque=val;
   const cb=document.getElementById('chkEstoque');
@@ -547,14 +559,14 @@ const CDoughnut={
   responsive:true, maintainAspectRatio:false,
   layout:{padding:{left:4,right:4,top:4,bottom:4}},
   plugins:{
-    legend:{labels:{color:#7A94B0',font:{size:11},boxWidth:12,padding:12}},
+    legend:{labels:{color:'#7A94B0',font:{size:11},boxWidth:12,padding:12}},
     datalabels:{
       color:'#fff',
       font:{size:11,weight:'600'},
       formatter:(value,ctx)=>{
         const total=ctx.dataset.data.reduce((a,b)=>a+b,0);
         const pct=(value/total*100);
-        return pct<3?''<(pct.toFixed(1)+'%');
+        return pct<3?'':(pct.toFixed(1)+'%');
       }
     }
   },
@@ -567,7 +579,7 @@ function buildCharts(){
 
   // Impressoras
   if(company!=='METROSUL'){
-    mk('cImpressoras',{type:'bar',data:{lHabels,datasets:[{label:'Impressoras',data:rr.map(r=>D.impressoras.corsan[r]||0),backgroundColor:COLORS.slice(0,rr.length),borderRadius:5}]},options:CDefsNoLeg});
+    mk('cImpressoras',{type:'bar',data:{labels,datasets:[{label:'Impressoras',data:rr.map(r=>D.impressoras.corsan[r]||0),backgroundColor:COLORS.slice(0,rr.length),borderRadius:5}]},options:CDefsNoLeg});
   } else {
     mk('cImpressoras',{type:'doughnut',data:{labels:['Metrosul'],datasets:[{data:[11],backgroundColor:['#00C4E8']}]},options:CDoughnut});
   }
@@ -654,11 +666,19 @@ function buildCharts(){
     layout:{padding:{top:24}},
     scales:{x:{...CDefs.scales.x,stacked:true},y:{...CDefs.scales.y,stacked:true}}}});
 
-  // Usuarios CLT vs Terceiros (stacked)
-  mk('cUsuarios',{type:'bar',data:{labels:REGS.map(r=>`${r} ${RN[r]}`),datasets:[
-    {label:'CLT',       data:REGS.map(r=>D.usuarios.clt[r]||0),  backgroundColor:'#22D3A0',borderRadius:4},
-    {label:'Terceiros', data:REGS.map(r=>D.usuarios.terc[r]||0), backgroundColor:'#FB923C',borderRadius:4}
-  ]},options:{...CDefs,scales:{x:{...CDefs.scales.x,stacked:true},y:{...CDefs.scales.y,stacked:true}}}});
+  // Usuarios — filtrado por vínculo
+  if(vinculo==='TODOS'){
+    mk('cUsuarios',{type:'bar',data:{labels:REGS.map(r=>`${r} ${RN[r]}`),datasets:[
+      {label:'CLT',       data:REGS.map(r=>D.usuarios.clt[r]||0),  backgroundColor:'#22D3A0',borderRadius:4},
+      {label:'Terceiros', data:REGS.map(r=>D.usuarios.terc[r]||0), backgroundColor:'#FB923C',borderRadius:4}
+    ]},options:{...CDefs,scales:{x:{...CDefs.scales.x,stacked:true},y:{...CDefs.scales.y,stacked:true}}}});
+  } else {
+    const _col=vinculo==='CLT'?'#22D3A0':'#FB923C';
+    const _dat=r=>vinculo==='CLT'?(D.usuarios.clt[r]||0):(D.usuarios.terc[r]||0);
+    mk('cUsuarios',{type:'bar',data:{labels:REGS.map(r=>`${r} ${RN[r]}`),datasets:[
+      {label:vinculo==='CLT'?'CLT':'Terceiros',data:REGS.map(r=>_dat(r)),backgroundColor:_col,borderRadius:4}
+    ]},options:CDefs});
+  }
 
   // Proporção CLT x Terceiros (horizontal bar 100%)
   const cltTot=REGS.map(r=>(D.usuarios.clt[r]||0));
@@ -693,7 +713,7 @@ function buildCharts(){
   ]},options:{...CDefs,scales:{x:{...CDefs.scales.x,stacked:true},y:{...CDefs.scales.y,stacked:true}}}});
 }
 
-// ── proporção de usuários da regional selecionada vs total CORSAN ──────────
+// ── propor�ão de usuários da regional selecionada vs total CORSAN ──────────
 function usrProp(rr){
   const totAll=sum(D.usuarios.c,REGS);
   const totSel=sum(D.usuarios.c,rr);
@@ -722,7 +742,7 @@ function costByReg(rr){
 
 function updateKPIs(){
   const rr=regs();
-  if(company!=='METROSUL'){
+  if(company==='METROSUL'){
     document.getElementById('k-usr').textContent=N(D.usuarios.m);
     document.getElementById('k-usr-s').textContent='Metrosul (SF)';
     document.getElementById('k-imp').textContent='11';
@@ -773,7 +793,7 @@ function updateCostGrid(){
   if(company==='METROSUL'){
     items=[
       {cat:'Impressoras (NF)',val:D.impressoras.nf_m,detail:'11 equip',color:'var(--accent)'},
-      {cat:'Links BRDigital', val:D.links.brd_m,     detail:'7 links 50Mbps',color:'var(--green''},
+      {cat:'Links BRDigital', val:D.links.brd_m,     detail:'7 links 50Mbps',color:'var(--green)'},
       {cat:'Linhas Vivo',     val:D.linhas.nf_vivo_m,detail:'205 linhas',color:'var(--yellow)'},
       {cat:'M365',            val:D.m365.nf_m,        detail:'118 licenças',color:'var(--purple)'},
     ];
@@ -934,61 +954,39 @@ function buildTables(){
     const c=linhasClaro(r),v=linhasVivo(r),t=c+v;
     return`<tr><td><span class="badge-r ${r.toLowerCase()}">${r}</span>${RN[r]}</td><td>${N(c)}</td><td>${N(v)}</td><td><strong>${N(t)}</strong></td><td class="val-muted">${((t/tA)*100).toFixed(1)}%</td></tr>`;
   }).join('');
-  tf.innerHTML<`<td>TOTAL</td><td>${N(tC)}</td><td>${N(tV)}</td><td>${N(tA)}</td><td>100%</td>`;
+  tf.innerHTML=`<td>TOTAL</td><td>${N(tC)}</td><td>${N(tV)}</td><td>${N(tA)}</td><td>100%</td>`;
 
   // Usuarios table
   const ub=document.getElementById('tUsuariosBody'),uf=document.getElementById('tUsuariosFoot'); if(!ub)return;
   let totCLT=0,totTerc=0,totI=0,totL=0;
   REGS.forEach(r=>{totCLT+=D.usuarios.clt[r]||0;totTerc+=D.usuarios.terc[r]||0;totI+=D.impressoras.corsan[r]||0;totL+=(D.linhas.claro[r]||0)+(D.linhas.vivo[r]||0);});
-  ub.innerHTML=REGS.map(r=>{
-    const c=D.usuarios.clt[r]||0,t=D.usuarios.terc[r]||0,tot=c+t;
-    const i=D.impressoras.corsan[r]||0,l=(D.linhas.claro[r]||0)+(D.linhas.vivo[r]||0);
-    const pct=((t/tot)*100).toFixed(0)+'%';
-    return`<tr>
-      <td><span class="badge-r ${r.toLowerCase()}">${r}</span></td>
-      <td>${RN[r]}</td>
-      <td style="color:var(--green);font-weight:600">${N(c)}</td>
-      <td style="color:var(--orange);font-weight:600">${N(t)}</td>
-      <td><strong>${N(tot)}</strong></td>
-      <td class="val-muted">${pct}</td>
-      <td>${N(i)}</td>
-      <td>${N(l)}</td>
-    </tr>`;
-  }).join('');
   const totAll=totCLT+totTerc;
-  uf.innerHTML=`<td>TOTAL</td><td>—</td><td>${N(totCLT)}</td><td>${N(totTerc)}</td><td>${N(totAll)}</td><td>${((totTerc/totAll)*100).toFixed(0)}%</td><td>${N(totI)}</td><td>${N(totL)}</td>`;
-
-  // KPI vinculo
-  const kv=document.getElementById('kpiVinculo'); if(!kv)return;
-  kv.innerHTML=`
-    <div class="cost-card"><div class="cost-cat">CLT CORSAN</div><div class="cost-val" style="color:var(--green)">${N(totCLT)}</div><div class="cost-detail">@corsan.com.br · ${((totCLT/totAll)*100).toFixed(0)}% do total</div></div>
-    <div class="cost-card"><div class="cost-cat">Terceiros (AEParceiros)</div><div class="cost-val" style="color:var(--orange)">${N(totTerc)}</div><div class="cost-detail">@aeparceiros.com.br · ${((totTerc/totAll)*100).toFixed(0)}% do total</div></div>
-    <div class="cost-card"><div class="cost-cat">Total Usuários SF</div><div class="cost-val" style="color:var(--accent)">${N(totAll)}</div><div class="cost-detail">Maior concentração Terceiros: S0 (${((D.usuarios.terc.S0/(D.usuarios.clt.S0+D.usuarios.terc.S0))*100).toFixed(0)}%)</div></div>
-  `;
-}
-
-function exportCSV(id,fn){
-  const t=document.getElementById(id); if(!t)return;
-  const rows=[...t.querySelectorAll('tr')].map(r=>[...r.querySelectorAll('th,td')].map(c=>'"'+c.textContent.trim().replace(/"/g,'""')+'"').join(',')).join('\n');
-  const csv='\ufeff'+rows.join('\n');
-  const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download=fn||'export.csv';
-  a.click();
-}
-
-function render(){
-  updateKPIs();
-  updateCostGrid();
-  buildCharts();
-  buildTables();
-}
-
-// Init
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('hDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  setCompany('CORSAN');
-});
-</script>
-</body>
-</html>
+  if(vinculo==='TODOS'){
+    ub.innerHTML=REGS.map(r=>{
+      const c=D.usuarios.clt[r]||0,t=D.usuarios.terc[r]||0,tot=c+t;
+      const i=D.impressoras.corsan[r]||0,l=(D.linhas.claro[r]||0)+(D.linhas.vivo[r]||0);
+      const pct=((t/tot)*100).toFixed(0)+'%';
+      return`<tr>
+        <td><span class="badge-r ${r.toLowerCase()}">${r}</span></td>
+        <td>${RN[r]}</td>
+        <td style="color:var(--green);font-weight:600">${N(c)}</td>
+        <td style="color:var(--orange);font-weight:600">${N(t)}</td>
+        <td><strong>${N(tot)}</strong></td>
+        <td class="val-muted">${pct}</td>
+        <td>${N(i)}</td>
+        <td>${N(l)}</td>
+      </tr>`;
+    }).join('');
+    uf.innerHTML<`<td>TOTAL</td><td>—</td><td>${N(totCLT)}</td><td>${N(totTerc)}</td><td>${N(totAll)}</td><td>${((totTerc/totAll)*100).toFixed(0)}%</td><td>${N(totI)}</td><td>${N(totL)}</td>`;
+  } else {
+    const isCLT=vinculo==='CLT';
+    const col=isCLT?'var(--green)':'var(--orange)';
+    const totFil=isCLT?totCLT:totTerc;
+    ub.innerHTML=REGS.map(r=>{
+      const val=isCLT?(D.usuarios.clt[r]||0):(D.usuarios.terc[r]||0);
+      const i=D.impressoras.corsan[r]||0,l=(D.linhas.claro[r]||0)+(D.linhas.vivo[r]||0);
+      const pctOf=totFil>0?((val/totFil)*100).toFixed(0)+'%':'—';
+      return`<tr>
+        <td><span class="badge-r ${r.toLowerCase()}">${r}</span></td>
+        <td>${RN[r]}</td>
+        <td style="color:${isCLT?'var(--green)':'var(--muted)'};font-weight:${isCLT?'600'
