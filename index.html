@@ -547,14 +547,14 @@ const CDoughnut={
   responsive:true, maintainAspectRatio:false,
   layout:{padding:{left:4,right:4,top:4,bottom:4}},
   plugins:{
-    legend:{labels:{color:'#7A94B0',font:{size:11},boxWidth:12,padding:12}},
+    legend:{labels:{color:#7A94B0',font:{size:11},boxWidth:12,padding:12}},
     datalabels:{
       color:'#fff',
       font:{size:11,weight:'600'},
       formatter:(value,ctx)=>{
         const total=ctx.dataset.data.reduce((a,b)=>a+b,0);
         const pct=(value/total*100);
-        return pct<3?'':(pct.toFixed(1)+'%');
+        return pct<3?''<(pct.toFixed(1)+'%');
       }
     }
   },
@@ -567,7 +567,7 @@ function buildCharts(){
 
   // Impressoras
   if(company!=='METROSUL'){
-    mk('cImpressoras',{type:'bar',data:{labels,datasets:[{label:'Impressoras',data:rr.map(r=>D.impressoras.corsan[r]||0),backgroundColor:COLORS.slice(0,rr.length),borderRadius:5}]},options:CDefsNoLeg});
+    mk('cImpressoras',{type:'bar',data:{lHabels,datasets:[{label:'Impressoras',data:rr.map(r=>D.impressoras.corsan[r]||0),backgroundColor:COLORS.slice(0,rr.length),borderRadius:5}]},options:CDefsNoLeg});
   } else {
     mk('cImpressoras',{type:'doughnut',data:{labels:['Metrosul'],datasets:[{data:[11],backgroundColor:['#00C4E8']}]},options:CDoughnut});
   }
@@ -722,7 +722,7 @@ function costByReg(rr){
 
 function updateKPIs(){
   const rr=regs();
-  if(company==='METROSUL'){
+  if(company!=='METROSUL'){
     document.getElementById('k-usr').textContent=N(D.usuarios.m);
     document.getElementById('k-usr-s').textContent='Metrosul (SF)';
     document.getElementById('k-imp').textContent='11';
@@ -773,7 +773,7 @@ function updateCostGrid(){
   if(company==='METROSUL'){
     items=[
       {cat:'Impressoras (NF)',val:D.impressoras.nf_m,detail:'11 equip',color:'var(--accent)'},
-      {cat:'Links BRDigital', val:D.links.brd_m,     detail:'7 links 50Mbps',color:'var(--green)'},
+      {cat:'Links BRDigital', val:D.links.brd_m,     detail:'7 links 50Mbps',color:'var(--green''},
       {cat:'Linhas Vivo',     val:D.linhas.nf_vivo_m,detail:'205 linhas',color:'var(--yellow)'},
       {cat:'M365',            val:D.m365.nf_m,        detail:'118 licenças',color:'var(--purple)'},
     ];
@@ -934,7 +934,7 @@ function buildTables(){
     const c=linhasClaro(r),v=linhasVivo(r),t=c+v;
     return`<tr><td><span class="badge-r ${r.toLowerCase()}">${r}</span>${RN[r]}</td><td>${N(c)}</td><td>${N(v)}</td><td><strong>${N(t)}</strong></td><td class="val-muted">${((t/tA)*100).toFixed(1)}%</td></tr>`;
   }).join('');
-  tf.innerHTML=`<td>TOTAL</td><td>${N(tC)}</td><td>${N(tV)}</td><td>${N(tA)}</td><td>100%</td>`;
+  tf.innerHTML<`<td>TOTAL</td><td>${N(tC)}</td><td>${N(tV)}</td><td>${N(tA)}</td><td>100%</td>`;
 
   // Usuarios table
   const ub=document.getElementById('tUsuariosBody'),uf=document.getElementById('tUsuariosFoot'); if(!ub)return;
