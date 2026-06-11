@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TI CORSAN — Dashboard Operacional</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  :root {
+    --bg: #0B1622;
+    --card: #142032;
+    --card2: #1A2D42;
+    --border: rgba(255,255,255,0.08);
+    --accent: #00C4E8;
+    --green: #22D3A0;
+    --yellow: #F5C542;
+    --red: #FF6B6B;
+    --purple: #A78BFA;
+    --orange: #FB923C;
+    --text: #E2E8F0;
+    --muted: #7A94B0;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+
+  .header {
+    background: linear-gradient(135deg, #0B1622 0%, #142032 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo-area { display: flex; align-items: center; gap: 12px; }
+  .logo-badge { display:flex; align-items:center; justify-content:center; width:40px; height:40px; }
+  .header-title { font-size: 17px; font-weight: 600; }
+  .header-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .header-date { font-size: 12px; color: var(--muted); text-align: right; }
+
+  .filter-bar {
+    padding: 12px 32px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  .filter-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .8px; }
+  .btn-filter {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 5px 14px; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all .2s;
+  }
+  .btn-filter:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-filter.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+  select.filter-select {
+    background: var(--card2); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 32px 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237A94B0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
+  select.filter-select:focus { outline: none; border-color: var(--accent); }
+  .v-divider { width: 1px; height: 24px; background: var(--border); }
+
+  .main { padding: 24px 32px; max-width: 1600px; margin: 0 auto; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; position: relative; overflow: hidden; transition: transform .2s, box-shadow .2s; cursor: default; }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+  .kpi-card::before { content:''; position:absolute; top:0;left:0;right:0;height:3px; }
+  .kpi-card.c-blue::before { background: var(--accent); }
+  .kpi-card.c-green::before { background: var(--green); }
+  .kpi-card.c-yellow::before { background: var(--yellow); }
+  .kpi-card.c-red::before { background: var(--red); }
+  .kpi-card.c-purple::before { background: var(--purple); }
+  .kpi-card.c-orange::before { background: var(--orange); }
+  .kpi-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 8px; }
+  .kpi-value { font-size: 28px; font-weight: 700; line-height: 1; }
+  .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 22px; overflow-x: auto; }
+  .tab { padding: 10px 18px; cursor: pointer; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; transition: all .15s; white-space: nowrap; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
+  @media (max-width: 1000px) { .chart-grid { grid-template-columns: 1fr; } }
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .chart-card.full { grid-column: 1/-1; }
+  .chart-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .chart-sub { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
+  .chart-wrap { position: relative; height: 230px; }
+  .chart-wrap.tall { height: 270px; }
+
+  .section-title { font-size: 14px; font-weight: 700; margin-bottom: 14px; margin-top: 4px; display: flex; align-items: center; gap: 10px; }
+  .section-pill { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 10px; background: rgba(0,196,232,.12); color: var(--accent); }
+
+  .cost-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .cost-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+  .cost-cat { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 6px; }
+  .cost-val { font-size: 20px; font-weight: 700; }
+  .cost-detail { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.65; opacity:0; max-height:0; overflow:hidden; transition: opacity .2s, max-height .2s; }
+  .cost-card:hover .cost-detail { opacity:1; max-height:80px; }
+  .cost-card.disabled { opacity: .4; }
+  .cost-card.disabled .cost-val { text-decoration: line-through; }
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+  .toggle-label { font-size:11px; color:var(--muted); }
+  .toggle { position:relative; display:inline-block; width:34px; height:18px; flex-shrink:0; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .toggle-slider { position:absolute; inset:0; background:#2A3F55; border-radius:18px; cursor:pointer; transition:.2s; }
+  .toggle-slider:before { content:''; position:absolute; width:12px; height:12px; left:3px; top:3px; background:#7A94B0; border-radius:50%; transition:.2s; }
+  .toggle input:checked + .toggle-slider { background:var(--accent); }
+  .toggle input:checked + .toggle-slider:before { transform:translateX(16px); background:#000; }
+
+  .table-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 18px; overflow: hidden; }
+  .table-header { padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+  .table-title { font-size: 13px; font-weight: 600; }
+  .btn-export { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: all .2s; }
+  .btn-export:hover { border-color: var(--accent); color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 9px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+  tbody td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: rgba(255,255,255,0.03); }
+  .tfoot td { padding: 10px 16px; font-size: 12px; font-weight: 700; border-top: 1px solid var(--border); color: var(--accent); }
+  .badge-r { font-size: 10px; padding: 2px 8px; border-radius: 8px; font-weight: 600; display:inline-block; margin-right:4px; }
+  .s0 { background:rgba(0,196,232,.15); color:#00C4E8; } .s1 { background:rgba(34,211,160,.15); color:#22D3A0; }
+  .s2 { background:rgba(245,197,66,.15); color:#F5C542; } .s3 { background:rgba(255,107,107,.15); color:#FF6B6B; }
+  .s4 { background:rgba(167,139,250,.15); color:#A78BFA; } .s5 { background:rgba(251,146,60,.15); color:#FB923C; }
+  .s6 { background:rgba(96,165,250,.15); color:#60A5FA; }
+  .val-green { color:var(--green); font-weight:600; } .val-muted { color:var(--muted); }
+
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--card2); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo-area">
+    <div class="logo-badge">
+      <img src="https://aegeactl.sharepoint.com/sites/CORSAN-SUPORTE/Shared%20Documents/040%20-%20Projetos/00%20-%20Geral/2026/%5BPJT-04.26%5D%20Apoiae%20Tech/Icone.png"
+           style="width:40px;height:40px;object-fit:contain;border-radius:6px"
+           alt="Apoiae Tech">
+    </div>
+    <div>
+      <div class="header-title" style="font-size:16px;font-weight:700;letter-spacing:.3px">Apoiae Tech</div>
+      <div class="header-sub">TI CORSAN · Dashboard Operacional</div>
+    </div>
+  </div>
+  <div class="header-date">
+    <div style="font-size:13px;font-weight:600;color:var(--text)" id="hDate">—</div>
+    <div>Referência: Maio / Junho 2026</div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-label">Empresa</div>
+  <div style="display:flex;gap:6px" id="compBtns">
+    <button class="btn-filter active" data-c="CORSAN" onclick="setCompany('CORSAN')">CORSAN</button>
+    <button class="btn-filter" data-c="METROSUL" onclick="setCompany('METROSUL')">Metrosul</button>
+    <button class="btn-filter" data-c="TODOS" onclick="setCompany('TODOS')">Todos</button>
+  </div>
+  <div class="v-divider"></div>
+  <div class="filter-label">Regional</div>
+  <select class="filter-select" id="regSel" onchange="setRegional(this.value)">
+    <option value="TODOS">Todas as Regionais</option>
+    <option value="S0">S0 — Corporativo / Sede</option>
+    <option value="S1">S1 — Diretoria Leste</option>
+    <option value="S2">S2 — Diretoria Central</option>
+    <option value="S3">S3 — Diretoria Norte</option>
+    <option value="S4">S4 — Diretoria Sul</option>
+    <option value="S5">S5 — Diretoria Oeste</option>
+  </select>
+
+</div>
+
+<div class="main">
+  <div class="kpi-grid">
+    <div class="kpi-card c-blue"><div class="kpi-label">Usuários SF</div><div class="kpi-value" id="k-usr">—</div><div class="kpi-sub" id="k-usr-s">—</div></div>
+    <div class="kpi-card c-green"><div class="kpi-label">Impressoras</div><div class="kpi-value" id="k-imp">—</div><div class="kpi-sub" id="k-imp-s">—</div></div>
+    <div class="kpi-card c-yellow"><div class="kpi-label">Linhas Móveis</div><div class="kpi-value" id="k-lin">—</div><div class="kpi-sub" id="k-lin-s">—</div></div>
+    <div class="kpi-card c-purple"><div class="kpi-label">M365 Licenças</div><div class="kpi-value" id="k-m365">—</div><div class="kpi-sub" id="k-m365-s">—</div></div>
+    <div class="kpi-card c-orange"><div class="kpi-label">Custo Mensal</div><div class="kpi-value" id="k-custo">—</div><div class="kpi-sub" id="k-custo-s">estimado</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('overview')">Visão Geral</div>
+    <div class="tab" onclick="showTab('linhas')">Linhas Móveis</div>
+    <div class="tab" onclick="showTab('links')">Links de Dados</div>
+    <div class="tab" onclick="showTab('m365')">M365 &amp; Licenças</div>
+    <div class="tab" onclick="showTab('usuarios')">Usuários SF</div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Impressoras por Regional</div>
+        <div class="chart-sub">Quantidade de dispositivos ativos</div>
+        <div class="chart-wrap"><canvas id="cImpressoras"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title" style="display:flex;align-items:center;gap:16px">
+          Linhas Móveis por Operadora
+          <span style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:400;color:var(--muted)">
+            <label class="toggle"><input type="checkbox" id="chkEstoque" onchange="setSemEstoque(this.checked)"><span class="toggle-slider"></span></label>
+            Remover em estoque
+          </span>
+        </div>
+        <div class="chart-sub">Distribuição por regional (CORSAN)</div>
+        <div class="chart-wrap"><canvas id="cLinhasOp"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">M365 — Licenças por Empresa</div>
+        <div class="chart-sub">CORSAN · Metrosul · Aegea</div>
+        <div class="chart-wrap"><canvas id="cM365Emp"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Custo Mensal por Categoria</div>
+        <div class="chart-sub">Distribuição % do gasto TI consolidado</div>
+        <div class="chart-wrap"><canvas id="cCustos"></canvas></div>
+      </div>
+    </div>
+    <div class="section-title">Resumo Financeiro Mensal <span class="section-pill" id="costPill">CORSAN</span></div>
+    <div class="cost-grid" id="costGrid"></div>
+    <div class="section-title" style="margin-top:24px">
+      Resumo Financeiro Previsto Anual
+      <span class="section-pill" id="anualPill">CORSAN</span>
+      <span style="margin-left:12px;display:inline-flex;gap:0;border-radius:6px;overflow:hidden;border:1px solid var(--border)">
+        <button id="btnAnual12" onclick="setPeriodo(12)" style="padding:3px 10px;font-size:11px;background:var(--accent);color:#000;border:none;cursor:pointer;font-weight:600">Ano completo</button>
+        <button id="btnAnual7"  onclick="setPeriodo(7)"  style="padding:3px 10px;font-size:11px;background:transparent;color:var(--muted);border:none;cursor:pointer">Jun–Dez</button>
+      </span>
+    </div>
+    <div class="cost-grid" id="anualGrid"></div>
+  </div>
+
+  <!-- LINHAS MÓVEIS -->
+  <div class="tab-content" id="tab-linhas">
+    <div class="chart-grid">
+      <div class="chart-card full">
+        <div class="chart-title" style="display:flex;align-items:center;gap:16px">
+          Linhas Móveis por Regional — CORSAN
+          <span style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:400;color:var(--muted)">
+            <label class="toggle"><input type="checkbox" onchange="setSemEstoque(this.checked)"><span class="toggle-slider"></span></label>
+            Remover em estoque
+          </span>
+        </div>
+        <div class="chart-sub">Claro e Vivo conforme inventário SF</div>
+        <div class="chart-wrap tall"><canvas id="cLinhasReg"></canvas></div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">Detalhe por Regional — CORSAN</div>
+        <button class="btn-export" onclick="exportCSV('tLinhas','linhas_moveis')">⬇ Export CSV</button>
+      </div>
+      <table id="tLinhas">
+        <thead><tr><th>Regional</th><th>Claro</th><th>Vivo</th><th>Total</th><th>% do Total</th></tr></thead>
+        <tbody id="tLinhasBody"></tbody>
+        <tfoot><tr id="tLinhasFoot" class="tfoot"></tr></tfoot>
+      </table>
+    </div>
+    <div class="cost-grid">
+      <div class="cost-card"><div class="cost-cat">Claro CORSAN</div><div class="cost-val" style="color:var(--red)">R$ 49.176,47</div><div class="cost-detail">3.662 linhas CORSAN<br>Total Share + Individual · 02/04–01/05/2026</div></div>
+      <div class="cost-card"><div class="cost-cat">Vivo CORSAN</div><div class="cost-val" style="color:var(--purple)">R$ 9.135,77</div><div class="cost-detail">600 linhas CORSAN · Período: 05/2026</div></div>
+      <div class="cost-card"><div class="cost-cat">5G Claro CORSAN</div><div class="cost-val" style="color:var(--yellow)">R$ 2.700,00</div><div class="cost-detail">15 linhas · R$ 180,00/unidade<br>Dados 5G corporativo</div></div>
+      <div class="cost-card"><div class="cost-cat">Vivo Metrosul</div><div class="cost-val" style="color:var(--green)">R$ 3.459,90</div><div class="cost-detail">205 linhas · Período 05/2026<br>Claro Metrosul: 81 linhas (sem NF disponível)</div></div>
+    </div>
+  </div>
+
+  <!-- LINKS -->
+  <div class="tab-content" id="tab-links">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">BRDigital CORSAN — Links por Velocidade</div>
+        <div class="chart-sub">Quantidade contratada</div>
+        <div class="chart-wrap"><canvas id="cBRD"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Pontual CORSAN — Links por Velocidade</div>
+        <div class="chart-sub">Quantidade contratada</div>
+        <div class="chart-wrap"><canvas id="cPontual"></canvas></div>
+      </div>
+      <div class="chart-card full">
+        <div class="chart-title">Custo Mensal por Provedor</div>
+        <div class="chart-sub">Valor total em R$/mês</div>
+        <div class="chart-wrap"><canvas id="cLinksProveedor"></canvas></div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">Starlink — Inventário por Regional</div>
+        <button class="btn-export" onclick="exportCSV('tStarlink','starlink')">⬇ Export CSV</button>
+      </div>
+      <table id="tStarlink">
+        <thead><tr><th>Regional</th><th>Qtd</th><th>Descrição</th><th>Valor/Mês</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge-r s0">S0</span>Corporativo</td><td>5</td><td>4× Link Rádio (R$1.150) + 1× Sede (R$1.056)</td><td class="val-green">R$ 5.656,00</td></tr>
+          <tr><td><span class="badge-r s1">S1</span>Leste</td><td>2</td><td>1× Sede Canoas (R$960) + 1× Osório (R$1.150)</td><td class="val-green">R$ 2.110,00</td></tr>
+          <tr><td><span class="badge-r s2">S2</span>Central</td><td>2</td><td>1× Sede Sta Maria (R$960) + 1× Rádio (R$1.150)</td><td class="val-green">R$ 2.110,00</td></tr>
+          <tr><td><span class="badge-r s3">S3</span>Norte</td><td>2</td><td>1× Sede B.Gonçalves (R$960) + 1× Rádio (R$1.150)</td><td class="val-green">R$ 2.110,00</td></tr>
+          <tr><td><span class="badge-r s4">S4</span>Sul</td><td>2</td><td>1× Sede Rio Grande (R$960) + 1× Rádio (R$1.150)</td><td class="val-green">R$ 2.110,00</td></tr>
+          <tr><td><span class="badge-r s5">S5</span>Oeste</td><td>2</td><td>1× Sede Alegrete (R$960) + 1× Santo Ângelo (R$1.150)</td><td class="val-green">R$ 2.110,00</td></tr>
+        </tbody>
+        <tfoot><tr class="tfoot"><td>TOTAL</td><td>15</td><td>—</td><td>R$ 16.206,00</td></tr></tfoot>
+      </table>
+    </div>
+    <div class="cost-grid">
+      <div class="cost-card"><div class="cost-cat">BRDigital CORSAN</div><div class="cost-val" style="color:var(--accent)">R$ 256.160,00</div><div class="cost-detail">398× 50Mbps (R$620) + 8× 100Mbps (R$800) + 1× 1Gbps (R$3.000)</div></div>
+      <div class="cost-card"><div class="cost-cat">Pontual CORSAN</div><div class="cost-val" style="color:var(--green)">R$ 245.480,32</div><div class="cost-detail">367× 50M + 40× 100M + 2× 1000M</div></div>
+      <div class="cost-card"><div class="cost-cat">Starlink CORSAN</div><div class="cost-val" style="color:var(--yellow)">R$ 16.206,00</div><div class="cost-detail">15 links · Fixo R$960–R$1.056 · Rádio R$1.150</div></div>
+      <div class="cost-card"><div class="cost-cat">BRDigital Metrosul</div><div class="cost-val" style="color:var(--purple)">R$ 4.340,00</div><div class="cost-detail">7× 50Mbps (R$620) — R$4.340/mês</div></div>
+    </div>
+  </div>
+
+  <!-- M365 -->
+  <div class="tab-content" id="tab-m365">
+    <div class="chart-grid">
+      <div class="chart-card full">
+        <div class="chart-title">M365 por Plano — CORSAN · Metrosul · Aegea</div>
+        <div class="chart-sub">Quantidade de licenças ativas por plano</div>
+        <div class="chart-wrap tall"><canvas id="cM365Plans"></canvas></div>
+      </div>
+      <div class="chart-card full">
+        <div class="chart-title">M365 por Regional — CORSAN</div>
+        <div class="chart-sub">Dados reais — vínculo Office CSVs × Usuarios SF · 3.164 de 3.196 vinculados</div>
+        <div class="chart-wrap tall"><canvas id="cM365Reg"></canvas></div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">Licenças M365 — Detalhe e Custo Estimado CORSAN</div>
+        <button class="btn-export" onclick="exportCSV('tM365','m365_licencas')">⬇ Export CSV</button>
+      </div>
+      <table id="tM365">
+        <thead><tr><th>Plano</th><th>CORSAN</th><th>Metrosul</th><th>Aegea</th><th>Preço Unit./mês</th><th>Custo CORSAN/mês</th></tr></thead>
+        <tbody>
+          <tr><td>Microsoft 365 E1</td><td>540</td><td>19</td><td>2.875</td><td class="val-muted">R$ 83,51</td><td class="val-green">R$ 45.095,40</td></tr>
+          <tr><td>Microsoft 365 E3</td><td>2.258</td><td>83</td><td>8.492</td><td class="val-muted">R$ 146,22</td><td class="val-green">R$ 330.168,96</td></tr>
+          <tr><td>Microsoft 365 F1</td><td>187</td><td>7</td><td>1.141</td><td class="val-muted">R$ 16,73</td><td class="val-green">R$ 3.128,51</td></tr>
+          <tr><td>Microsoft 365 F3</td><td>198</td><td>9</td><td>364</td><td class="val-muted">R$ 39,00</td><td class="val-green">R$ 7.722,00</td></tr>
+          <tr><td>Microsoft Project</td><td>11</td><td>0</td><td>134</td><td class="val-muted">R$ 1.400,00</td><td class="val-green">R$ 15.400,00</td></tr>
+          <tr><td>Microsoft Visio</td><td>2</td><td>0</td><td>13</td><td class="val-muted">R$ 900,00</td><td class="val-green">R$ 1.800,00</td></tr>
+        </tbody>
+        <tfoot><tr class="tfoot"><td>TOTAL</td><td>3.196</td><td>118</td><td>13.019</td><td>—</td><td>R$ 403.314,87</td></tr></tfoot>
+      </table>
+    </div>
+    <div class="section-title" style="margin-top:20px">Outras Licenças <span class="section-pill">CORSAN / Grupo</span></div>
+    <div class="table-card">
+      <div class="table-header"><div class="table-title">Adobe · Autodesk · ThinkCell</div></div>
+      <table>
+        <thead><tr><th>Produto</th><th>CORSAN</th><th>Metrosul</th><th>Aegea</th><th>Observação</th></tr></thead>
+        <tbody>
+          <tr><td>AutoCAD (Autodesk)</td><td>135</td><td>—</td><td>15</td><td class="val-muted">R$ 5.692,40/lic/ano · Custo anual CORSAN: R$ 768.474,00</td></tr>
+          <tr><td>ThinkCell</td><td>63</td><td>2</td><td>33</td><td class="val-muted">R$ 1.976,70/lic</td></tr>
+          <tr><td>Adobe Acrobat</td><td>3</td><td>—</td><td>—</td><td class="val-muted">—</td></tr>
+          <tr><td>Adobe Creative Cloud</td><td>1</td><td>—</td><td>1</td><td class="val-muted">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- USUARIOS SF -->
+  <div class="tab-content" id="tab-usuarios">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Usuários por Regional — CLT × Terceiros</div>
+        <div class="chart-sub">@corsan.com.br = CLT · @aeparceiros.com.br = Terceiros</div>
+        <div class="chart-wrap"><canvas id="cUsuarios"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Ativos por Tipo e Regional</div>
+        <div class="chart-sub">Impressoras · Notebooks · Smartphones</div>
+        <div class="chart-wrap"><canvas id="cAtivos"></canvas></div>
+      </div>
+      <div class="chart-card full">
+        <div class="chart-title">Proporção CLT × Terceiros por Regional</div>
+        <div class="chart-sub">Percentual de cada vínculo empregatício</div>
+        <div class="chart-wrap"><canvas id="cCLTTerc"></canvas></div>
+      </div>
+    </div>
+
+    <!-- KPI CLT/Terceiros -->
+    <div class="cost-grid" id="kpiVinculo"></div>
+
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">Usuários SF — CORSAN por Regional</div>
+        <button class="btn-export" onclick="exportCSV('tUsuarios','usuarios_sf')">⬇ Export CSV</button>
+      </div>
+      <table id="tUsuarios">
+        <thead><tr><th>Regional</th><th>Nome</th><th>CLT</th><th>Terceiros</th><th>Total</th><th>% Terceiros</th><th>Impressoras</th><th>Linhas</th></tr></thead>
+        <tbody id="tUsuariosBody"></tbody>
+        <tfoot><tr id="tUsuariosFoot" class="tfoot"></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+Chart.register(ChartDataLabels);
+const REGS = ['S0','S1','S2','S3','S4','S5'];
+const RN = {S0:'Corporativo',S1:'Dir. Leste',S2:'Dir. Central',S3:'Dir. Norte',S4:'Dir. Sul',S5:'Dir. Oeste'};
+const COLORS = ['#00C4E8','#22D3A0','#F5C542','#FF6B6B','#A78BFA','#FB923C'];
+
+const D = {
+  impressoras: { corsan:{S0:47,S1:60,S2:86,S3:93,S4:80,S5:50}, metro:11, nf_c:92154.47, nf_m:1385.93, pb:24361.78, cor:3151.44 },
+  linhas: {
+    claro:  {S0:1427,S1:566,S2:509,S3:449,S4:396,S5:315},
+    vivo:   {S0:351,S1:63, S2:57, S3:50, S4:44, S5:35 },
+    m_claro:81, m_vivo:312,
+    nf_claro:49176.47, nf_vivo:9135.77, nf_5g:2700, nf_vivo_m:3459.90,
+    vivo_estoque:{S0:243,S1:0,S2:0,S3:0,S4:0,S5:0},  // 243 linhas Vivo em estoque (sede)
+    claro_estoque:{S0:475,S1:0,S2:0,S3:0,S4:0,S5:0}   // 475 linhas Claro em estoque (sede)
+  },
+  links: { brd_c:256160, brd_m:4340, pont_c:245480.32, star:16206,
+           star_r:{S0:5656,S1:2110,S2:2110,S3:2110,S4:2110,S5:2110},
+           g5_r:{S0:900,S1:360,S2:360,S3:360,S4:360,S5:360} },
+  m365: {
+    c:{E1:540,E3:2258,F1:187,F3:198,Project:11,Visio:2},
+    m:{E1:19,E3:83,F1:7,F3:9,Project:0,Visio:0},
+    a:{E1:2875,E3:8492,F1:1141,F3:364,Project:134,Visio:13},
+    nf_c:403314.87, nf_m:14191.06,
+    // por regional (vínculo Office CSVs × Usuarios SF)
+    by_r:{S0:706,S1:556,S2:565,S3:420,S4:536,S5:381},
+    by_r_plan:{
+      E1:     {S0:24, S1:147,S2:110,S3:65, S4:134,S5:58},
+      E3:     {S0:665,S1:322,S2:391,S3:296,S4:302,S5:256},
+      F1:     {S0:5,  S1:52, S2:31, S3:30, S4:32, S5:36},
+      F3:     {S0:2,  S1:33, S2:33, S3:29, S4:68, S5:31},
+      Project:{S0:8,  S1:2,  S2:0,  S3:0,  S4:0,  S5:0},
+      Visio:  {S0:2,  S1:0,  S2:0,  S3:0,  S4:0,  S5:0}
+    }
+  },
+  usuarios: {
+    c:    {S0:2552,S1:1516,S2:1365,S3:1204,S4:1062,S5:844},
+    clt:  {S0:906, S1:1099,S2:1165,S3:1044,S4:963, S5:761},
+    terc: {S0:1646,S1:417, S2:200, S3:160, S4:99,  S5:83 },
+    m:393
+  },
+  ativos: {
+    nb:{S0:620,S1:388,S2:349,S3:308,S4:272,S5:128},
+    sp:{S0:1114,S1:675,S2:607,S3:534,S4:471,S5:310}
+  }
+};
+
+let company='CORSAN', regional='TODOS', m365On=true, cotAjustada=false, periodoMeses=12, semEstoque=false;
+// Licenças anuais — toggles individuais
+let licOn = { autocad: true, thinkcell: true, adobe: true };
+
+// Valores anuais (÷12 quando cotação ajustada)
+// by_r = contagem exata de usuários CORSAN por regional (cruzamento com SF)
+const LIC_ANUAL = {
+  autocad:   { label:'AutoCAD',   val_anual: 1138480.00, unit: 5692.40, by_r:{S0:53,S1:41,S2:25,S3:24,S4:30,S5:27}, detail:'200 lic × R$5.692,40/ano', cor:'#F5C542' },
+  thinkcell: { label:'ThinkCell', val_anual: 207553.50,  unit: 1976.70, by_r:{S0:77,S1:10,S2:0, S3:3, S4:13,S5:2 }, detail:'105 lic × R$1.976,70/ano', cor:'#A78BFA' },
+  adobe:     { label:'Adobe',     val_anual: 12576.92,   unit: 3144.23, by_r:{S0:4, S1:0, S2:0, S3:0, S4:0, S5:0 }, detail:'4 lic × R$3,144.23/ano · somente Sede (S0)', cor:'#FB923C' }
+};
+
+const charts={};
+
+function N(v,d=0){ return new Intl.NumberFormat('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v); }
+function R(v){ return 'R$ '+N(v,2); }
+function sum(obj,keys){ return keys.reduce((a,k)=>a+(obj[k]||0),0); }
+function regs(){ return regional==='TODOS'?REGS:[regional]; }
+
+function toggleM365(val){ m365On=val; updateKPIs(); updateCostGrid(); }
+function toggleLic(key,val){ licOn[key]=val; updateKPIs(); updateCostGrid(); }
+function setCotacao(val){
+  cotAjustada=val;
+  document.getElementById('cotLabel').textContent=val?'Ajustada':'Sem Ajuste';
+  document.getElementById('cotInfo').style.display=val?'block':'none';
+  updateKPIs(); updateCostGrid();
+}
+
+// Retorna o custo mensal das licenças anuais conforme cotação e toggles
+// rr = regional selecionada ('TODOS' ou 'S0'..'S5')
+function licCustoMensal(rr){
+  let total=0;
+  Object.entries(LIC_ANUAL).forEach(([k,v])=>{
+    if(!licOn[k]) return;
+    let val;
+    if(regional==='TODOS'){
+      val = v.val_anual/12;
+    } else {
+      const cnt = (v.by_r && v.by_r[rr[0]]) || 0;
+      val = cnt * v.unit / 12;
+    }
+    total += val;
+  });
+  return total;
+}
+
+function setCompany(c){
+  company=c;
+  document.querySelectorAll('#compBtns .btn-filter').forEach(b=>b.classList.toggle('active',b.dataset.c===c));
+  document.getElementById('regSel').style.display=c==='METROSUL'?'none':'';
+  if(c==='METROSUL') regional='TODOS';
+  render();
+}
+function setRegional(r){ regional=r; render(); }
+function setSemEstoque(val){
+  semEstoque=val;
+  const cb=document.getElementById('chkEstoque');
+  if(cb) cb.checked=val;
+  render();
+}
+// Retorna contagem ajustada (subtrai estoque se toggle ativo)
+function linhasClaro(r){ return (D.linhas.claro[r]||0) - (semEstoque?D.linhas.claro_estoque[r]||0:0); }
+function linhasVivo(r){  return (D.linhas.vivo[r]||0)  - (semEstoque?D.linhas.vivo_estoque[r]||0:0);  }
+function setPeriodo(m){
+  periodoMeses=m;
+  document.getElementById('btnAnual12').style.cssText='padding:3px 10px;font-size:11px;background:'+(m===12?'var(--accent);color:#000':'transparent;color:var(--muted)')+';border:none;cursor:pointer;font-weight:'+(m===12?'600':'400');
+  document.getElementById('btnAnual7').style.cssText='padding:3px 10px;font-size:11px;background:'+(m===7?'var(--accent);color:#000':'transparent;color:var(--muted)')+';border:none;cursor:pointer;font-weight:'+(m===7?'600':'400');
+  updateCostGrid();
+}
+
+function showTab(name){
+  const names=['overview','linhas','links','m365','usuarios'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.tab-content').forEach(tc=>tc.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  setTimeout(buildCharts,30);
+}
+
+function mk(id,cfg){
+  const c=document.getElementById(id); if(!c)return;
+  if(charts[id]){charts[id].destroy();}
+  charts[id]=new Chart(c,cfg);
+}
+const CDefs={
+  responsive:true, maintainAspectRatio:false,
+  layout:{padding:{left:4,right:4,top:4,bottom:4}},
+  plugins:{
+    legend:{labels:{color:'#7A94B0',font:{size:11},boxWidth:12,padding:12}},
+    datalabels:{display:false}
+  },
+  scales:{
+    x:{ticks:{color:'#7A94B0',font:{size:11},maxRotation:0,minRotation:0,autoSkip:false},grid:{color:'rgba(255,255,255,0.05)'},border:{display:false}},
+    y:{min:0,ticks:{color:'#7A94B0',font:{size:11}},grid:{color:'rgba(255,255,255,0.05)'},border:{display:false}}
+  }
+};
+const CDefsNoLeg={...CDefs,plugins:{...CDefs.plugins,legend:{display:false},datalabels:{display:false}}};
+// Doughnut/pie — sem eixos
+const CDoughnut={
+  responsive:true, maintainAspectRatio:false,
+  layout:{padding:{left:4,right:4,top:4,bottom:4}},
+  plugins:{
+    legend:{labels:{color:'#7A94B0',font:{size:11},boxWidth:12,padding:12}},
+    datalabels:{
+      color:'#fff',
+      font:{size:11,weight:'600'},
+      formatter:(value,ctx)=>{
+        const total=ctx.dataset.data.reduce((a,b)=>a+b,0);
+        const pct=(value/total*100);
+        return pct<3?'':(pct.toFixed(1)+'%');
+      }
+    }
+  },
+  scales:{x:{display:false},y:{display:false}}
+};
+
+function buildCharts(){
+  const rr=regs();
+  const labels=rr.map(r=>`${r} ${RN[r]}`);
+
+  // Impressoras
+  if(company!=='METROSUL'){
+    mk('cImpressoras',{type:'bar',data:{labels,datasets:[{label:'Impressoras',data:rr.map(r=>D.impressoras.corsan[r]||0),backgroundColor:COLORS.slice(0,rr.length),borderRadius:5}]},options:CDefsNoLeg});
+  } else {
+    mk('cImpressoras',{type:'doughnut',data:{labels:['Metrosul'],datasets:[{data:[11],backgroundColor:['#00C4E8']}]},options:CDoughnut});
+  }
+
+  // Linhas por operadora (stacked)
+  if(company!=='METROSUL'){
+    const sc={...CDefs,scales:{x:{...CDefs.scales.x,stacked:true},y:{...CDefs.scales.y,stacked:true}}};
+    mk('cLinhasOp',{type:'bar',data:{labels,datasets:[
+      {label:'Claro',data:rr.map(r=>linhasClaro(r)),backgroundColor:'#FF6B6B',borderRadius:4},
+      {label:'Vivo', data:rr.map(r=>linhasVivo(r)), backgroundColor:'#A78BFA',borderRadius:4}
+    ]},options:sc});
+  } else {
+    mk('cLinhasOp',{type:'doughnut',data:{labels:['Claro (81)','Vivo (312)'],datasets:[{data:[81,312],backgroundColor:['#FF6B6B','#A78BFA']}]},options:CDoughnut});
+  }
+
+  // M365 por empresa
+  mk('cM365Emp',{type:'doughnut',data:{labels:['CORSAN 3.196','Metrosul 118','Aegea 13.019'],datasets:[{data:[3196,118,13019],backgroundColor:['#00C4E8','#22D3A0','#A78BFA'],hoverOffset:8}]},options:CDoughnut});
+
+  // Custos por categoria — responde ao filtro regional
+  const _c=costByReg(rr);
+  // Licenças anuais convertidas em mensal (sempre, independente do toggle cotAjustada)
+  const _licM = Object.entries(LIC_ANUAL).reduce((s,[k,v])=>{
+    if(!licOn[k]) return s;
+    return s + (regional==='TODOS' ? v.val_anual/12 : ((v.by_r&&v.by_r[rr[0]])||0)*v.unit/12);
+  },0);
+  const costLabels=['Impressoras','BRDigital','Pontual','Starlink','Linhas Claro','Linhas Vivo','5G Claro','M365','Licenças Anuais'];
+  const costVals=[_c.imp, _c.brd, _c.pont, _c.star, _c.claro, _c.vivo, _c.g5, _c.m365, _licM];
+  const costColors=['#00C4E8','#22D3A0','#16A34A','#F59E0B','#FF6B6B','#F472B6','#FB923C','#A78BFA','#F5C542'];
+  const tot=costVals.reduce((a,b)=>a+b,0);
+  const nonZeroIdx=costVals.map((v,i)=>v>0?i:-1).filter(i=>i>=0);
+  mk('cCustos',{type:'doughnut',data:{
+    labels:nonZeroIdx.map(i=>costLabels[i]),
+    datasets:[{data:nonZeroIdx.map(i=>costVals[i]),backgroundColor:nonZeroIdx.map(i=>costColors[i]),hoverOffset:8}]
+  },options:CDoughnut});
+
+  // Linhas por regional (tab linhas)
+  const linhasTotais=REGS.map(r=>linhasClaro(r)+linhasVivo(r));
+  mk('cLinhasReg',{type:'bar',data:{labels:REGS.map(r=>`${r} ${RN[r]}`),datasets:[
+    {label:'Claro',data:REGS.map(r=>linhasClaro(r)),backgroundColor:'#FF6B6B',borderRadius:4,
+     datalabels:{display:false}},
+    {label:'Vivo', data:REGS.map(r=>linhasVivo(r)), backgroundColor:'#A78BFA',borderRadius:4,
+     datalabels:{
+       anchor:'end',align:'end',color:'#CBD5E1',font:{size:11,weight:'600'},
+       formatter:(_,ctx)=>linhasTotais[ctx.dataIndex]
+     }}
+  ]},options:{...CDefs,
+    layout:{padding:{top:20}},
+    scales:{x:{...CDefs.scales.x,stacked:true},y:{...CDefs.scales.y,stacked:true}}}});
+
+  // BRDigital
+  mk('cBRD',{type:'bar',data:{labels:['50 Mbps','100 Mbps','1 Gbps'],datasets:[{label:'Qtd',data:[398,8,1],backgroundColor:['#00C4E8','#22D3A0','#F5C542'],borderRadius:6}]},options:CDefsNoLeg});
+
+  // Pontual
+  mk('cPontual',{type:'bar',data:{labels:['50 Mbps','100 Mbps','1 Gbps'],datasets:[{label:'Qtd',data:[367,40,2],backgroundColor:['#A78BFA','#FB923C','#F472B6'],borderRadius:6}]},options:CDefsNoLeg});
+
+  // Links por provedor
+  mk('cLinksProveedor',{type:'bar',data:{labels:['BRDigital CORSAN','Pontual CORSAN','Starlink CORSAN','BRDigital Metrosul'],datasets:[{label:'R$/mês',data:[256160,245480.32,16206,4340],backgroundColor:['#00C4E8','#22D3A0','#F5C542','#60A5FA'],borderRadius:6}]},options:CDefsNoLeg});
+
+  // M365 plans
+  const plans=['E1','E3','F1','F3','Project','Visio'];
+  mk('cM365Plans',{type:'bar',data:{labels:plans,datasets:[
+    {label:'CORSAN',  data:plans.map(p=>D.m365.c[p]||0),backgroundColor:'#00C4E8',borderRadius:4},
+    {label:'Metrosul',data:plans.map(p=>D.m365.m[p]||0),backgroundColor:'#22D3A0',borderRadius:4},
+    {label:'Aegea',   data:plans.map(p=>D.m365.a[p]||0),backgroundColor:'#A78BFA',borderRadius:4}
+  ]},options:CDefs});
+
+  // M365 por Regional — dados reais (vínculo Office CSVs × Usuarios SF)
+  const planCols=['E1','E3','F1','F3','Project','Visio'];
+  const planColors=['#00C4E8','#A78BFA','#22D3A0','#FB923C','#F5C542','#F472B6'];
+  const m365RegTotais=REGS.map(r=>D.m365.by_r[r]||0);
+  mk('cM365Reg',{type:'bar',data:{
+    labels:REGS.map(r=>`${r} ${RN[r]}`),
+    datasets:planCols.map((p,i)=>({
+      label:p,
+      data:REGS.map(r=>D.m365.by_r_plan[p][r]||0),
+      backgroundColor:planColors[i],
+      borderRadius:i===planCols.length-1?5:0,
+      datalabels: i===planCols.length-1 ? {
+        anchor:'end',align:'end',color:'#CBD5E1',font:{size:11,weight:'600'},
+        formatter:(_,ctx)=>m365RegTotais[ctx.dataIndex]
+      } : {display:false}
+    }))
+  },options:{...CDefs,
+    layout:{padding:{top:24}},
+    scales:{x:{...CDefs.scales.x,stacked:true},y:{...CDefs.scales.y,stacked:true}}}});
+
+  // Usuarios CLT vs Terceiros (stacked)
+  mk('cUsuarios',{type:'bar',data:{labels:REGS.map(r=>`${r} ${RN[r]}`),datasets:[
+    {label:'CLT',       data:REGS.map(r=>D.usuarios.clt[r]||0),  backgroundColor:'#22D3A0',borderRadius:4},
+    {label:'Terceiros', data:REGS.map(r=>D.usuarios.terc[r]||0), backgroundColor:'#FB923C',borderRadius:4}
+  ]},options:{...CDefs,scales:{x:{...CDefs.scales.x,stacked:true},y:{...CDefs.scales.y,stacked:true}}}});
+
+  // Proporção CLT x Terceiros (horizontal bar 100%)
+  const cltTot=REGS.map(r=>(D.usuarios.clt[r]||0));
+  const trcTot=REGS.map(r=>(D.usuarios.terc[r]||0));
+  const totArr=REGS.map((_,i)=>cltTot[i]+trcTot[i]);
+  mk('cCLTTerc',{type:'bar',data:{labels:REGS.map(r=>`${r} ${RN[r]}`),datasets:[
+    {label:'CLT %',       data:cltTot.map((v,i)=>+((v/totArr[i])*100).toFixed(1)), backgroundColor:'#22D3A0',borderRadius:4, datalabels:{display:false}},
+    {label:'Terceiros %', data:trcTot.map((v,i)=>+((v/totArr[i])*100).toFixed(1)), backgroundColor:'#FB923C',borderRadius:4,
+     datalabels:{anchor:'center',align:'center',color:'#fff',font:{size:10,weight:'600'},formatter:(v,ctx)=>{
+       const ds=ctx.chart.data.datasets; const tot=ds[0].data[ctx.dataIndex]+ds[1].data[ctx.dataIndex];
+       return v>5?(v.toFixed(0)+'%'):'';
+     }}}
+  ]},options:{
+    responsive:true, maintainAspectRatio:false,
+    indexAxis:'y',
+    layout:{padding:{left:4,right:4,top:4,bottom:4}},
+    plugins:{
+      legend:{labels:{color:'#7A94B0',font:{size:11},boxWidth:12,padding:12}},
+      datalabels:{display:false}
+    },
+    scales:{
+      x:{min:0,max:100,stacked:true,ticks:{color:'#7A94B0',font:{size:11},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.05)'},border:{display:false}},
+      y:{stacked:true,ticks:{color:'#7A94B0',font:{size:11}},grid:{color:'rgba(255,255,255,0.05)'},border:{display:false}}
+    }
+  }});
+
+  // Ativos stacked
+  mk('cAtivos',{type:'bar',data:{labels:REGS,datasets:[
+    {label:'Impressoras',data:REGS.map(r=>D.impressoras.corsan[r]||0),backgroundColor:'#00C4E8',borderRadius:3},
+    {label:'Notebooks',  data:REGS.map(r=>D.ativos.nb[r]||0),         backgroundColor:'#22D3A0',borderRadius:3},
+    {label:'Smartphones',data:REGS.map(r=>D.ativos.sp[r]||0),         backgroundColor:'#A78BFA',borderRadius:3}
+  ]},options:{...CDefs,scales:{x:{...CDefs.scales.x,stacked:true},y:{...CDefs.scales.y,stacked:true}}}});
+}
+
+// ── proporção de usuários da regional selecionada vs total CORSAN ──────────
+function usrProp(rr){
+  const totAll=sum(D.usuarios.c,REGS);
+  const totSel=sum(D.usuarios.c,rr);
+  return totSel/totAll;
+}
+// custo proporcional: usa dados exatos quando disponível, proporção de usuários quando não
+function costByReg(rr){
+  const p=usrProp(rr);
+  const totImp=sum(D.impressoras.corsan,REGS);
+  const impSel=sum(D.impressoras.corsan,rr);
+  const claroSel=sum(D.linhas.claro,rr), claroTot=sum(D.linhas.claro,REGS);
+  const vivoSel=sum(D.linhas.vivo,rr),   vivoTot=sum(D.linhas.vivo,REGS);
+  const starSel=rr.length===1 ? (D.links.star_r[rr[0]]||0) : sum(D.links.star_r,rr);
+  return {
+    imp:    (impSel/totImp)*D.impressoras.nf_c,          // exato por qtd impressoras
+    brd:    p*D.links.brd_c,                              // proporcional usuários
+    pont:   p*D.links.pont_c,                             // proporcional usuários
+    star:   starSel,                                      // exato por regional
+    claro:  (claroSel/claroTot)*D.linhas.nf_claro,       // exato por qtd linhas
+    vivo:   (vivoSel/vivoTot)*D.linhas.nf_vivo,          // exato por qtd linhas
+    g5:     rr.length===1 ? (D.links.g5_r[rr[0]]||0) : sum(D.links.g5_r,rr), // exato por regional
+    m365:   p*D.m365.nf_c,                                // proporcional usuários
+    isProp: rr.length<REGS.length  // BRDigital, Pontual e M365 ainda são proporcionais
+  };
+}
+
+function updateKPIs(){
+  const rr=regs();
+  if(company==='METROSUL'){
+    document.getElementById('k-usr').textContent=N(D.usuarios.m);
+    document.getElementById('k-usr-s').textContent='Metrosul (SF)';
+    document.getElementById('k-imp').textContent='11';
+    document.getElementById('k-imp-s').textContent='unidades ativas';
+    document.getElementById('k-lin').textContent=N(D.linhas.m_claro+D.linhas.m_vivo);
+    document.getElementById('k-lin-s').textContent=`${D.linhas.m_claro} Claro · ${D.linhas.m_vivo} Vivo`;
+    document.getElementById('k-m365').textContent='118';
+    document.getElementById('k-m365-s').textContent='Metrosul';
+    const ct=D.impressoras.nf_m+D.links.brd_m+D.linhas.nf_vivo_m+D.m365.nf_m;
+    document.getElementById('k-custo').textContent=R(ct);
+    document.getElementById('k-custo-s').textContent='Metrosul/mês (estimado)';
+    return;
+  }
+  const addM=company==='TODOS';
+  const p=usrProp(rr);
+  const m365Est=Math.round(3196*p)+(addM&&regional==='TODOS'?118:0);
+  document.getElementById('k-usr').textContent=N(sum(D.usuarios.c,rr)+(addM&&regional==='TODOS'?D.usuarios.m:0));
+  document.getElementById('k-usr-s').textContent=addM?'CORSAN + Metrosul':'CORSAN (SF)';
+  document.getElementById('k-imp').textContent=N(sum(D.impressoras.corsan,rr)+(addM&&regional==='TODOS'?D.impressoras.metro:0));
+  document.getElementById('k-imp-s').textContent='dispositivos ativos';
+  const cl=sum(D.linhas.claro,rr), vi=sum(D.linhas.vivo,rr);
+  document.getElementById('k-lin').textContent=N(cl+vi+(addM&&regional==='TODOS'?D.linhas.m_claro+D.linhas.m_vivo:0));
+  document.getElementById('k-lin-s').textContent=`${N(cl)} Claro · ${N(vi)} Vivo`;
+  document.getElementById('k-m365').textContent=N(m365Est);
+  document.getElementById('k-m365-s').textContent=(regional!=='TODOS'?'est. proporcional · ':'')+(addM?'CORSAN + Metrosul':'CORSAN');
+  const c=costByReg(rr);
+  const m365val=(m365On?1:0)*(c.m365+(addM&&regional==='TODOS'?D.m365.nf_m:0));
+  const licMensal=licCustoMensal(rr);
+  const custo=c.imp+c.brd+c.pont+c.star+c.claro+c.vivo+c.g5+m365val+licMensal+(addM&&regional==='TODOS'?D.impressoras.nf_m+D.links.brd_m+D.linhas.nf_vivo_m:0);
+  document.getElementById('k-custo').textContent=R(custo);
+  const subs=[];
+  if(!m365On) subs.push('sem M365');
+  // licenças sempre incluídas no total
+  if(c.isProp) subs.push('proporcional');
+  document.getElementById('k-custo-s').textContent=(subs.length?subs.join(' · ')+' · ':'')+'CORSAN/mês estimado';
+}
+
+function updateCostGrid(){
+  const el=document.getElementById('costGrid');
+  const pill=document.getElementById('costPill');
+  const addM=company==='TODOS';
+  const rr=regs();
+  const isFiltered=regional!=='TODOS';
+  const regLabel=isFiltered?` · ${regional} ${RN[regional]}`:'';
+  pill.textContent=(company==='METROSUL'?'Metrosul':addM?'CORSAN + Metrosul':'CORSAN')+regLabel;
+
+  let items;
+  if(company==='METROSUL'){
+    items=[
+      {cat:'Impressoras (NF)',val:D.impressoras.nf_m,detail:'11 equip',color:'var(--accent)'},
+      {cat:'Links BRDigital', val:D.links.brd_m,     detail:'7 links 50Mbps',color:'var(--green)'},
+      {cat:'Linhas Vivo',     val:D.linhas.nf_vivo_m,detail:'205 linhas',color:'var(--yellow)'},
+      {cat:'M365',            val:D.m365.nf_m,        detail:'118 licenças',color:'var(--purple)'},
+    ];
+  } else {
+    const c=costByReg(rr);
+    const p=usrProp(rr);
+    const impSel=sum(D.impressoras.corsan,rr);
+    const claroSel=sum(D.linhas.claro,rr), vivoSel=sum(D.linhas.vivo,rr);
+    const m365Est=Math.round(3196*p);
+    const propTag=isFiltered?' <span style="font-size:10px;opacity:.6">(prop.)</span>':'';
+    items=[
+      {cat:'Impressoras (NF)',
+       val:c.imp+(addM&&!isFiltered?D.impressoras.nf_m:0),
+       detail:`${impSel} equip${addM&&!isFiltered?' +11 Metro':''} · NF mensal<br>P&B: ${R(D.impressoras.pb)} · Color: ${R(D.impressoras.cor)}`,
+       color:'var(--accent)', extra:''},
+      {cat:'Links BRDigital',
+       val:c.brd+(addM&&!isFiltered?D.links.brd_m:0),
+       detail:`${isFiltered?'Estimado proporcional':'407 links'} CORSAN${addM&&!isFiltered?' +7 Metro':''}`,
+       color:'var(--green)', extra:isFiltered?propTag:''},
+      {cat:'Links Pontual',
+       val:c.pont,
+       detail:isFiltered?'Estimado proporcional':'409 links CORSAN',
+       color:'var(--yellow)', extra:isFiltered?propTag:''},
+      {cat:'Starlink',
+       val:c.star,
+       detail:isFiltered?`Regional ${regional} · ${rr.length===1?'dado exato':'dados exatos'}`:'15 links CORSAN',
+       color:'var(--purple)', extra:''},
+      {cat:'Linhas Claro',
+       val:c.claro,
+       detail:`${N(claroSel)} linhas${isFiltered?' · proporcional NF':''}`,
+       color:'var(--red)', extra:''},
+      {cat:'Linhas Vivo',
+       val:c.vivo+(addM&&!isFiltered?D.linhas.nf_vivo_m:0),
+       detail:`${N(vivoSel)} linhas CORSAN${addM&&!isFiltered?' +205 Metro':''}`,
+       color:'#F472B6', extra:''},
+      {cat:'Linhas 5G Claro',
+       val:c.g5,
+       detail:isFiltered
+         ? (regional==='S0'?'5 linhas (Caldas Júnior)':'2 linhas · Van + Reserva emergência')
+         : '15 linhas · S0: 5 sede · S1–S5: 2 (Van+Reserva)',
+       color:'var(--orange)', extra:''},
+      {cat:'M365',
+       val:c.m365+(addM&&!isFiltered?D.m365.nf_m:0),
+       detail:`~${N(m365Est+(addM&&!isFiltered?118:0))} licenças${isFiltered?' · estimado proporcional':''}`,
+       color:'#60A5FA', extra:isFiltered?propTag:'', isM365:true},
+    ];
+  }
+
+  // License cards — sempre mensal (÷12)
+  const licCards = Object.entries(LIC_ANUAL).map(([k,v])=>{
+    const on = licOn[k];
+    let valMensal, detailStr;
+    if(regional==='TODOS'){
+      valMensal = v.val_anual/12;
+      detailStr = v.detail;
+    } else {
+      const cnt = (v.by_r && v.by_r[rr[0]]) || 0;
+      valMensal = cnt * v.unit / 12;
+      detailStr = v.unit>0
+        ? `${cnt} lic · ${rr[0]} · ${R(cnt*v.unit)}/ano`
+        : v.detail;
+    }
+    const disabled2 = !on ? ' disabled' : '';
+    return `<div class="cost-card${disabled2}">
+      <div class="cost-cat">${v.label} <span style="font-size:9px;color:var(--muted);text-transform:none">/ mês (÷12)</span></div>
+      <div class="cost-val" style="color:${v.cor}">${v.unit>0||regional==='TODOS'?R(valMensal):'s/d'}</div>
+      <div class="cost-detail">${detailStr}</div>
+      <div class="toggle-row"><span class="toggle-label">${on?'Incluído':'Excluído'}</span>
+        <label class="toggle"><input type="checkbox" ${on?'checked':''} onchange="toggleLic('${k}',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Anual section items
+  const allMonthlyItems = [...items];
+  Object.entries(LIC_ANUAL).forEach(([k,v])=>{
+    let valAnual, detailStr;
+    if(regional==='TODOS'){
+      valAnual  = v.val_anual;
+      detailStr = v.detail;
+    } else {
+      const cnt = (v.by_r && v.by_r[rr[0]]) || 0;
+      valAnual  = cnt * v.unit;
+      detailStr = v.unit>0 ? `${cnt} lic · ${rr[0]}` : v.detail;
+    }
+    allMonthlyItems.push({cat:v.label, val:valAnual, detail:detailStr, color:v.cor, isLic:true, licKey:k});
+  });
+
+  const totalMensal = items.reduce((s,i)=>{
+    if(i.isM365&&!m365On) return s;
+    return s+i.val;
+  },0) + Object.entries(LIC_ANUAL).reduce((s,[k,v])=>{
+    if(!licOn[k]) return s;
+    return s + (regional==='TODOS'?v.val_anual/12:((v.by_r&&v.by_r[rr[0]])||0)*v.unit/12);
+  },0);
+
+  // totalA computed inside render block below
+
+  // anualCards rendered inside elA block below
+
+  // Total mensal (respeita toggles)
+  const totalMes = items.reduce((s,i)=>{ if(i.isM365&&!m365On) return s; return s+i.val; },0)
+    + Object.entries(LIC_ANUAL).reduce((s,[k,v])=>{
+        if(!licOn[k]) return s;
+        return s+(regional==='TODOS'?v.val_anual/12:((v.by_r&&v.by_r[rr[0]])||0)*v.unit/12);
+      },0);
+  const totalCard=`<div class="cost-card" style="border-color:var(--accent)">
+    <div class="cost-cat">TOTAL MENSAL ESTIMADO</div>
+    <div class="cost-val" style="color:var(--accent)">${R(totalMes)}</div>
+    <div class="cost-detail">Soma de todos os custos ativos</div>
+  </div>`;
+  el.innerHTML=items.map(i=>{
+    const disabled=i.isM365&&!m365On?' disabled':'';
+    const toggle=i.isM365?`<div class="toggle-row"><span class="toggle-label">${m365On?'Incluído no total':'Excluído do total'}</span><label class="toggle"><input type="checkbox" ${m365On?'checked':''} onchange="toggleM365(this.checked)"><span class="toggle-slider"></span></label></div>`:'';
+    return`<div class="cost-card${disabled}"><div class="cost-cat">${i.cat}${i.extra||''}</div><div class="cost-val" style="color:${i.color}">${R(i.val)}</div><div class="cost-detail">${i.detail}</div>${toggle}</div>`;
+  }).join('')+licCards+totalCard;
+
+  // Render annual grid (period controlled by periodoMeses toggle)
+  const elA = document.getElementById('anualGrid');
+  if(elA){
+    const pillA = document.getElementById('anualPill');
+    if(pillA) pillA.textContent = pill.textContent;
+    const M = periodoMeses; // 12 or 7
+    const periodoLabel = M===12 ? 'Jan–Dez' : 'Jun–Dez · 7 meses';
+    const totalA = allMonthlyItems.reduce((s,i)=>{
+      if(i.isM365&&!m365On) return s;
+      if(i.isLic&&i.licKey&&!licOn[i.licKey]) return s;
+      return s+(i.isLic?i.val*(M/12):i.val*M);
+    },0);
+    const cardsA = allMonthlyItems.map(i=>{
+      const val = i.isLic ? i.val*(M/12) : i.val*M;
+      const isOff = (i.isM365&&!m365On)||(i.isLic&&i.licKey&&!licOn[i.licKey]);
+      const disabled = isOff?' disabled':'';
+      const toggle = i.isM365
+        ? `<div class="toggle-row"><span class="toggle-label">${m365On?'Incluído':'Excluído'}</span><label class="toggle"><input type="checkbox" ${m365On?'checked':''} onchange="toggleM365(this.checked)"><span class="toggle-slider"></span></label></div>`
+        : i.isLic&&i.licKey
+          ? `<div class="toggle-row"><span class="toggle-label">${licOn[i.licKey]?'Incluído':'Excluído'}</span><label class="toggle"><input type="checkbox" ${licOn[i.licKey]?'checked':''} onchange="toggleLic('${i.licKey}',this.checked)"><span class="toggle-slider"></span></label></div>`
+          : '';
+      const licLabel = i.isLic ? '<span style="font-size:9px;color:var(--muted);text-transform:none"> ×'+M+'/12</span>' : '';
+      return`<div class="cost-card${disabled}"><div class="cost-cat">${i.cat}${licLabel}</div><div class="cost-val" style="color:${i.color}">${R(val)}</div><div class="cost-detail">${i.detail}</div>${toggle}</div>`;
+    }).join('');
+    elA.innerHTML = cardsA +
+      `<div class="cost-card" style="border-color:var(--accent)">
+        <div class="cost-cat">TOTAL PREVISTO</div>
+        <div class="cost-val" style="color:var(--accent)">${R(totalA)}</div>
+        <div class="cost-detail">${periodoLabel}</div>
+      </div>`;
+  }
+}
+
+function buildTables(){
+  // Linhas table
+  const tb=document.getElementById('tLinhasBody'), tf=document.getElementById('tLinhasFoot'); if(!tb)return;
+  let tC=0,tV=0;
+  REGS.forEach(r=>{tC+=linhasClaro(r);tV+=linhasVivo(r);});
+  const tA=tC+tV;
+  tb.innerHTML=REGS.map(r=>{
+    const c=linhasClaro(r),v=linhasVivo(r),t=c+v;
+    return`<tr><td><span class="badge-r ${r.toLowerCase()}">${r}</span>${RN[r]}</td><td>${N(c)}</td><td>${N(v)}</td><td><strong>${N(t)}</strong></td><td class="val-muted">${((t/tA)*100).toFixed(1)}%</td></tr>`;
+  }).join('');
+  tf.innerHTML=`<td>TOTAL</td><td>${N(tC)}</td><td>${N(tV)}</td><td>${N(tA)}</td><td>100%</td>`;
+
+  // Usuarios table
+  const ub=document.getElementById('tUsuariosBody'),uf=document.getElementById('tUsuariosFoot'); if(!ub)return;
+  let totCLT=0,totTerc=0,totI=0,totL=0;
+  REGS.forEach(r=>{totCLT+=D.usuarios.clt[r]||0;totTerc+=D.usuarios.terc[r]||0;totI+=D.impressoras.corsan[r]||0;totL+=(D.linhas.claro[r]||0)+(D.linhas.vivo[r]||0);});
+  ub.innerHTML=REGS.map(r=>{
+    const c=D.usuarios.clt[r]||0,t=D.usuarios.terc[r]||0,tot=c+t;
+    const i=D.impressoras.corsan[r]||0,l=(D.linhas.claro[r]||0)+(D.linhas.vivo[r]||0);
+    const pct=((t/tot)*100).toFixed(0)+'%';
+    return`<tr>
+      <td><span class="badge-r ${r.toLowerCase()}">${r}</span></td>
+      <td>${RN[r]}</td>
+      <td style="color:var(--green);font-weight:600">${N(c)}</td>
+      <td style="color:var(--orange);font-weight:600">${N(t)}</td>
+      <td><strong>${N(tot)}</strong></td>
+      <td class="val-muted">${pct}</td>
+      <td>${N(i)}</td>
+      <td>${N(l)}</td>
+    </tr>`;
+  }).join('');
+  const totAll=totCLT+totTerc;
+  uf.innerHTML=`<td>TOTAL</td><td>—</td><td>${N(totCLT)}</td><td>${N(totTerc)}</td><td>${N(totAll)}</td><td>${((totTerc/totAll)*100).toFixed(0)}%</td><td>${N(totI)}</td><td>${N(totL)}</td>`;
+
+  // KPI vinculo
+  const kv=document.getElementById('kpiVinculo'); if(!kv)return;
+  kv.innerHTML=`
+    <div class="cost-card"><div class="cost-cat">CLT CORSAN</div><div class="cost-val" style="color:var(--green)">${N(totCLT)}</div><div class="cost-detail">@corsan.com.br · ${((totCLT/totAll)*100).toFixed(0)}% do total</div></div>
+    <div class="cost-card"><div class="cost-cat">Terceiros (AEParceiros)</div><div class="cost-val" style="color:var(--orange)">${N(totTerc)}</div><div class="cost-detail">@aeparceiros.com.br · ${((totTerc/totAll)*100).toFixed(0)}% do total</div></div>
+    <div class="cost-card"><div class="cost-cat">Total Usuários SF</div><div class="cost-val" style="color:var(--accent)">${N(totAll)}</div><div class="cost-detail">Maior concentração Terceiros: S0 (${((D.usuarios.terc.S0/(D.usuarios.clt.S0+D.usuarios.terc.S0))*100).toFixed(0)}%)</div></div>
+  `;
+}
+
+function exportCSV(id,fn){
+  const t=document.getElementById(id); if(!t)return;
+  const rows=[...t.querySelectorAll('tr')].map(r=>[...r.querySelectorAll('th,td')].map(c=>'"'+c.textContent.trim().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const csv='\ufeff'+rows.join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=fn||'export.csv';
+  a.click();
+}
+
+function render(){
+  updateKPIs();
+  updateCostGrid();
+  buildCharts();
+  buildTables();
+}
+
+// Init
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('hDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  setCompany('CORSAN');
+});
+</script>
+</body>
+</html>
